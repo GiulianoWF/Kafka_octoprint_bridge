@@ -6,7 +6,7 @@ docker-compose up
 to start kafka broker + zookeper + one instance of octoprint
 
 build ./Gcode_server/Gcode_server.cpp with the command 
-g++ -Iincludes -Llibs Gcode_server.cpp -lpistache -lpthread
+g++ -Iincludes -Llibs Gcode_server.cpp -lpistache -lpthread -std=c++17
 
 After that access the octoprint address and go thought the wizard.
 (It is possible that octoprint require  internet access at least one time, after the wizard is run, in order to start working.)

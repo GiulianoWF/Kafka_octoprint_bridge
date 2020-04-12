@@ -6,69 +6,160 @@ from kafka import KafkaProducer
 import requests
 import re
 import io
+import time
 
-def upload_and_print(file_name, printer_url, api_key): 
-    payload_file = {'file': open(file_name, 'rb')}
-    url = printer_url + 'api/files/local'
-    print (url)
-    payload = {'select': 'true','print': 'true' }
-    header = {'X-Api-Key': api_key }
-    response = requests.post(url, files=payload_file, data=payload, headers=header)
-    print(response.text)
+from threading import Thread
 
-def main(args=None):
-    kafka_ip = "127.0.0.1"
-    kafka_port = "9092"
+kafka_ip = "127.0.0.1"
+kafka_port = "9092"
+kafka_url = kafka_ip + ':' + kafka_port
 
+gcode_server_ip = "http://127.0.0.1"
+gcode_server_port = "9087"
+gcode_server_url = gcode_server_ip + ':' + gcode_server_port
 
-    gcode_server_ip = "http://127.0.0.1"
-    gcode_server_port = "9087"
+class Kafka_printers_status_retriever(Thread):
+    def __init__ (self, printers_data, kafka_url):
+        Thread.__init__(self)
+        self.printers_data = printers_data
+        self.producer = KafkaProducer(bootstrap_servers=kafka_url)
 
-    printers = [{"name":"printer1", "url":"http://127.0.0.1:5001/", "api_token":'92EB3B3F646A4BC4B8EBD7868A265F9E'}]
-    
-    # Producer will be used to send status
-    # producer = KafkaProducer(bootstrap_servers=kafka_ip+':'+kafka_port)
-    consumer = KafkaConsumer('orders',
-                         group_id='my-group',
-                         bootstrap_servers=kafka_ip+':'+kafka_port)
+    def get_printer_status(self, printer):
+        data = {
+            "processStatus": "In Operation",
+            "status": "Online"
+        }
 
-    while (True):
-        #Thread1==========================================
-        for message in consumer:
-            message_string = message.value.decode('utf8').replace("'", '"')
+        recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+                                                self.printers_data[printer]['api_token'], 
+                                                'connection', 
+                                                '"state": "(.*)"') 
+        if (recieved_info != -1):
+            data['processStatus'] = recieved_info
+            print ("processStatus: ",recieved_info)
+        else:
+            return -1
+
+        recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+                                                self.printers_data[printer]['api_token'], 
+                                                'job', 
+                                                '"state": "(.*)"') 
+        if (recieved_info != -1):
+            data['status'] = recieved_info
+            print ("status: ",recieved_info)
+        else:
+            return -1
+
+        return data
+
+    def get_info_from_api(self, url, api_key, resource, regex_search):
+        headers = {'Content-Type': 'application/json', 'X-Api-Key': api_key}
+        try:
+            response = requests.get(url + 'api/' + resource, headers=headers)
+            response = re.findall(regex_search, response.text)[0]
+        except Exception as err:
+            # TODO
+            print(f'Error occurred while getting octoprint api info: {err}')
+            return -1
+        else:
+            return response
+
+    def run(self):
+        while (True):
+            data = {}
+            for printer in self.printers_data:
+                print ('Iterating printer data: ', printer)
+                info = self.get_printer_status(printer)
+                if info != -1:
+                    data[printer] = info
             
-            # Alternative method. Performance?
-            print (message_string)
-            # part = re.findall('"part": "(.*)", "pri', message_string )[0]
+            self.producer.send('printers_status', json.dumps(data, default=json_util.default).encode('utf-8'))
+            time.sleep(1)
 
-            message_json = json.loads(message_string)
+class Kafka_printers_controler(Thread):
+    def __init__ (self, printers_data, kafka_url, gcode_server_url):
+        Thread.__init__(self)
+        self.printers_data = printers_data
+        self.consumer = KafkaConsumer('orders',
+                    group_id='my-group',
+                    bootstrap_servers=kafka_url)
+        self.gcode_server_url = gcode_server_url
 
-            order_id = message_json['id']
-            node = message_json['node']
-            part = message_json['part']
-            printer = message_json['printer']
+    def upload_and_print(self, file_name, printer_url, api_key): 
+        payload_file = {'file': open(file_name, 'rb')}
+        url = printer_url + 'api/files/local'
+        payload = {'select': 'true','print': 'true' }
+        header = {'X-Api-Key': api_key }
 
-            print (order_id, node, part, printer)
+        try:
+            response = requests.post(url, files=payload_file, data=payload, headers=header, timeout=1)
+        except requests.exceptions.HTTPError as http_err:
+            print(f'HTTP error while updating file to the printer: {http_err}')
+        except Exception as err:
+            print(f'Error occurred while updating file to the printer: {err}')
 
-            headers = {'Content-Type': 'application/json', 'printer':str(printer), 'part':str(part)} #, 'X-Api-Key': api_key}
-            url = gcode_server_ip + ':' + gcode_server_port + '/get_gcode'
-            response = requests.get(url, headers=headers)
-            print (response.text)
+    def get_gcode_and_record(self, printer, part):
+        headers = {'Content-Type': 'application/json', 'printer':printer, 'part':part}
+        url = self.gcode_server_url + '/get_gcode'
 
-            # if (response.text is 'No such file or directory'):
-            #      continue
+        try:
+            response = requests.get(url, headers=headers, timeout=1)
+        except requests.exceptions.HTTPError as http_err:
+            print(f'HTTP error while geting gcode from server: {http_err}')
+        except Exception as err:
+            print(f'Error occurred while geting gcode from server: {err}')
 
-            # TODO super slow
-            with open("file.gcode","wb") as f:
-                f.write(response.text.encode("utf-8"))
-            # pseudo_file = io.StringIO(response.text)
+        with open("file.gcode","wb") as f:
+            f.write(response.text.encode("utf-8"))
 
-            #TODO printer number from array
-            printer_number = 0
-            upload_and_print('file.gcode', printers[printer_number]['url'], printers[printer_number]['api_token'])
+    def decode_kafka_print_message(self, message):
+        message_string = message.value.decode('utf8').replace("'", '"')
+        
+        # print (message_string)
 
-            while (True):
-                pass
+        # Alternative method. Performance?
+        # part = re.findall('"part": "(.*)", "pri', message_string )[0]
+
+        message_json = json.loads(message_string)
+
+        order_id = message_json['id']
+        node = message_json['node']
+        part = message_json['part']
+        printer = message_json['printer']
+
+        return (str(order_id), str(node), str(part), str(printer))
+
+    def run(self):
+        while (True):
+            for message in self.consumer:
+                (order_id, node, part, printer) = self.decode_kafka_print_message(message)
+                print ('\n\nRecieved print order from kafka: ', order_id, node, part, printer)
+                self.get_gcode_and_record(printer, part)
+
+                if (printer in self.printers_data):
+                    self.upload_and_print('file.gcode', printers[printer]['url'], printers[printer]['api_token'])
+                else:
+                    # TODO a best alternative here?
+                    print ("This printer is not listed")
+
+def main():
+    printers = {}
+    with open('printers_conf.txt') as printers_file:
+        printers = json.load(printers_file)
+
+    for printer in printers:
+        try:
+            test = printers[printer]['url']
+            test = printers[printer]['api_token']
+        except Exception as err:
+            print(f'Error reading printer configurations file: {printer}:{err}')
+            exit()
+
+    monitor_thread = Kafka_printers_status_retriever(printers, kafka_url)
+    monitor_thread.start()
+
+    control_thread = Kafka_printers_controler(printers, kafka_url, gcode_server_url)
+    control_thread.start()
 
 if __name__ == '__main__':
     main()
