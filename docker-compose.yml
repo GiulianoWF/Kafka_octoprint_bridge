@@ -32,7 +32,42 @@ services:
     depends_on:
       - zoo1
 
-  octoprint:
+  IoT_server:
+    image: ubuntu:focal
+    command: bash -c "
+           apt update   
+        && apt install git -y
+        && apt install python3 -y
+        && apt install python3-pip -y
+        && pip3 install requests
+        && pip3 install pymongo
+        && pip3 install kafka-python
+        && cd /home
+        && git clone https://github.com/GiulianoWF/Kafka_octoprint_bridge.git
+        && cd Kafka_octoprint_bridge/
+        && python3 IoT_agent.py
+        && bash
+      "
+    stdin_open: true
+    tty: true
+
+  Gcode_server:
+    image: ubuntu:focal
+    command: bash -c "
+           apt update   
+        && apt install git -y
+        && apt install build-essential -y
+        && cd /home
+        && git clone https://github.com/GiulianoWF/Kafka_octoprint_bridge.git
+        && cd Kafka_octoprint_bridge/Gcode_server
+        && g++ -Iincludes -Llibs Gcode_server.cpp -lpistache -lpthread -std=c++17
+        && ./a.out
+        && bash
+      "
+    stdin_open: true
+    tty: true
+
+  octoprint1:
     image: octoprint/octoprint
     ports:
       - 5001:5000
