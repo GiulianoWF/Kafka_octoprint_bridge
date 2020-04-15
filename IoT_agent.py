@@ -30,18 +30,26 @@ class Kafka_printers_status_retriever(Thread):
             "status": "Online"
         }
 
-        # recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
-        #                                         self.printers_data[printer]['api_token'], 
-        #                                         'connection', 
-        #                                         '"state": "(.*)"') 
-        recieved_json = self.get_json_info_from_api(   self.printers_data[printer]['url'], 
-                                                        self.printers_data[printer]['api_token'], 
-                                                        'connection')
-        if (recieved_json != -1):
-            data['processStatus'] = recieved_json['current']['status']
+        recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+                                                self.printers_data[printer]['api_token'], 
+                                                'connection', 
+                                                '"state": "(.*)"') 
+        # recieved_json = self.get_json_info_from_api(   self.printers_data[printer]['url'], 
+        #                                                 self.printers_data[printer]['api_token'], 
+        #                                                 'connection')
+        if (recieved_info != -1):
+            data['processStatus'] = recieved_info
             print ("processStatus: ", data['processStatus'])
         else:
-            return
+            recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+                                                self.printers_data[printer]['api_token'], 
+                                                'connection', 
+                                                '"state":"(.*)"') 
+            if (recieved_info != -1):
+                data['processStatus'] = recieved_info
+                print ("processStatus: ", data['processStatus'])                                    
+            else:
+                return -1
 
         recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
                                                 self.printers_data[printer]['api_token'], 
@@ -51,23 +59,30 @@ class Kafka_printers_status_retriever(Thread):
             data['status'] = recieved_info
             print ("status: ",recieved_info)
         else:
-            return -1
-
+            recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+                                                self.printers_data[printer]['api_token'], 
+                                                'job', 
+                                                '"state": "(.*)"') 
+            if (recieved_info != -1):
+                data['status'] = recieved_info
+                print ("status: ",recieved_info)
+            else:
+                return -1
         return data
 
-    def get_json_info_from_api(self, url, api_key, resource):
-        headers = {'Content-Type': 'application/json', 'X-Api-Key': api_key}
-        try:
-            response = requests.get(url + 'api/' + resource, headers=headers)
-            response_json = json.load(response.text)
-        except Exception as err:
-            # TODO
-            print (f'Error occurred while getting octoprint api info: {err}')
-            if ('response' in locals()):
-                print (response.text)
-            return -1
-        else:
-            return response_json
+    # def get_json_info_from_api(self, url, api_key, resource):
+    #     headers = {'Content-Type': 'application/json', 'X-Api-Key': api_key}
+    #     try:
+    #         response = requests.get(url + 'api/' + resource, headers=headers)
+    #         response_json = json.load(response.text)
+    #     except Exception as err:
+    #         # TODO
+    #         print (f'Error occurred while getting octoprint api info: {err}')
+    #         if ('response' in locals()):
+    #             print (response.text)
+    #         return -1
+    #     else:
+    #         return response_json
 
     def get_info_from_api(self, url, api_key, resource, regex_search):
         headers = {'Content-Type': 'application/json', 'X-Api-Key': api_key}
