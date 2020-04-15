@@ -37,7 +37,7 @@ class Kafka_printers_status_retriever(Thread):
         recieved_json = self.get_json_info_from_api((   self.printers_data[printer]['url'], 
                                                         self.printers_data[printer]['api_token'], 
                                                         'connection') 
-        if (recieved_info != -1):
+        if (recieved_json != -1):
             data['processStatus'] = recieved_json['current']['status']
             print ("processStatus: ", data['processStatus'])
         else:
