@@ -59,7 +59,8 @@ class Kafka_printers_status_retriever(Thread):
             response_regex = re.findall(regex_search, response.text)[0]
         except Exception as err:
             # TODO
-            print (response.text)
+            if ('response' in locals()):
+                print (response.text)
             print (f'Error occurred while getting octoprint api info: {err}')
             return -1
         else:
@@ -145,7 +146,7 @@ class Kafka_printers_controler(Thread):
 
 def main():
     printers = {}
-    with open('printers_conf.txt') as printers_file:
+    with open('/home/configuration/printers_conf.txt') as printers_file:
         printers = json.load(printers_file)
 
     for printer in printers:
