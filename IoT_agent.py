@@ -44,7 +44,7 @@ class Kafka_printers_status_retriever(Thread):
             recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
                                                 self.printers_data[printer]['api_token'], 
                                                 'connection', 
-                                                '"state":"(.*)"') 
+                                                '"state":"(.*)"},"op') 
             if (recieved_info != -1):
                 data['processStatus'] = recieved_info
                 print ("processStatus: ", data['processStatus'])                                    
@@ -62,7 +62,7 @@ class Kafka_printers_status_retriever(Thread):
             recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
                                                 self.printers_data[printer]['api_token'], 
                                                 'job', 
-                                                '"state": "(.*)"') 
+                                                '"state":"(.*)"}') 
             if (recieved_info != -1):
                 data['status'] = recieved_info
                 print ("status: ",recieved_info)
