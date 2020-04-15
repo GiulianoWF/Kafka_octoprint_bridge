@@ -10,11 +10,11 @@ import time
 
 from threading import Thread
 
-kafka_ip = "127.0.0.1"
+kafka_ip = "kafka1"
 kafka_port = "9092"
 kafka_url = kafka_ip + ':' + kafka_port
 
-gcode_server_ip = "http://127.0.0.1"
+gcode_server_ip = "http://Gcode_server"
 gcode_server_port = "9087"
 gcode_server_url = gcode_server_ip + ':' + gcode_server_port
 
@@ -56,13 +56,14 @@ class Kafka_printers_status_retriever(Thread):
         headers = {'Content-Type': 'application/json', 'X-Api-Key': api_key}
         try:
             response = requests.get(url + 'api/' + resource, headers=headers)
-            response = re.findall(regex_search, response.text)[0]
+            response_regex = re.findall(regex_search, response.text)[0]
         except Exception as err:
             # TODO
-            print(f'Error occurred while getting octoprint api info: {err}')
+            print (response.text)
+            print (f'Error occurred while getting octoprint api info: {err}')
             return -1
         else:
-            return response
+            return response_regex
 
     def run(self):
         while (True):

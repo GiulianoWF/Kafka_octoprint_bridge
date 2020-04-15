@@ -1,1 +1,0 @@
-{"printer1": {"url": "http://192.168.0.13/", "api_token": "90327074782C48C8B7658077EC68E43C"}, "printer2": {"url": "http://127.0.0.1:5002/", "api_token": "92EB3B3F646A4BC4B8EBD7868A265F9E"}}
