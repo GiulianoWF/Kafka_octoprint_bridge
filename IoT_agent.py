@@ -10,7 +10,7 @@ import time
 
 from threading import Thread
 
-kafka_ip = "kafka1"
+kafka_ip = "192.168.0.10" #'kafka1'
 kafka_port = "9092"
 kafka_url = kafka_ip + ':' + kafka_port
 
@@ -30,44 +30,26 @@ class Kafka_printers_status_retriever(Thread):
             "status": "Online"
         }
 
-        recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+        recieved_info = self.get_info_from_api( self.printers_data[printer]['url'], 
                                                 self.printers_data[printer]['api_token'], 
                                                 'connection', 
-                                                '"state": "(.*)"') 
-        # recieved_json = self.get_json_info_from_api(   self.printers_data[printer]['url'], 
-        #                                                 self.printers_data[printer]['api_token'], 
-        #                                                 'connection')
+                                                '"state":\s?"(.*?)"') #'"state":\s?"(.*?)"'
         if (recieved_info != -1):
             data['processStatus'] = recieved_info
             print ("processStatus: ", data['processStatus'])
         else:
-            recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
-                                                self.printers_data[printer]['api_token'], 
-                                                'connection', 
-                                                '"state":"(.*)"},"op') 
-            if (recieved_info != -1):
-                data['processStatus'] = recieved_info
-                print ("processStatus: ", data['processStatus'])                                    
-            else:
-                return -1
+            return -1
 
-        recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
+        recieved_info = self.get_info_from_api( self.printers_data[printer]['url'], 
                                                 self.printers_data[printer]['api_token'], 
                                                 'job', 
-                                                '"state": "(.*)"') 
+                                                '"state":\s?"(.*?)"') 
         if (recieved_info != -1):
             data['status'] = recieved_info
             print ("status: ",recieved_info)
         else:
-            recieved_info = self.get_info_from_api(  self.printers_data[printer]['url'], 
-                                                self.printers_data[printer]['api_token'], 
-                                                'job', 
-                                                '"state":"(.*)"}') 
-            if (recieved_info != -1):
-                data['status'] = recieved_info
-                print ("status: ",recieved_info)
-            else:
-                return -1
+            return -1
+
         return data
 
     # def get_json_info_from_api(self, url, api_key, resource):
@@ -178,7 +160,8 @@ class Kafka_printers_controler(Thread):
 
 def main():
     printers = {}
-    with open('/home/configuration/printers_conf.txt') as printers_file:
+    with open('printers_conf.txt') as printers_file:
+    # with open('/home/configuration/printers_conf.txt') as printers_file:
         printers = json.load(printers_file)
 
     for printer in printers:
